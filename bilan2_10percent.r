@@ -3,8 +3,8 @@
 library(data.table)
 library(openxlsx)
 library(lubridate)
-setwd("crbpo")
-
+### setwd("crbpo")
+source("functions/fun_open_gestbag.r")
 
 nom <- "extrait_STRALU"
 file <- paste0("data/",nom,".xlsx")
@@ -139,5 +139,28 @@ bagues_BA <- d[grep("BRESIL",Lieux),BAGUE]
 
 dd <- d[BAGUE %in% bagues_BA,]
 dim(dd)
+
+dd
+
+
+
+
+
+## ALCTOR_URIAAL
+
+name ="extrait_euring_ALCTOR_URIAAL"
+file <- paste0("data/",name,".xlsx")
+
+d <- f_open_extrait_xlsx(file,selected_col =c("ACTION","CENTRE","PAYS","Lieux","BAGUE","ESPECE","Nom_vernaculaire","BAGUEUR"))
+
+d <- d[PAYS == "FR" & ACTION %in% c("C","R"),]
+head(d)
+
+dd <- d[,.(nb = .N) , by = BAGUEUR]
+dd[, tot := sum(nb)]
+dd[,prop := round(nb/tot,2)]
+setorder(dd,-prop)
+print(dd)
+
 
 dd

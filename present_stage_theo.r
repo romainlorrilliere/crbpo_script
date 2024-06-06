@@ -10,6 +10,8 @@ require(lares)
 
 setwd("crbpo")
 
+la_session <-  "202404"
+
 ##importer les inscriptions
 
 
@@ -19,10 +21,10 @@ colnames(dinscrit)
 setDT(dinscrit)
 newcol <- c("id","date","user","exam","last_name","first_name","email","region","type","pp","identif","titre","cadre","convoc","attestation","destinataire","session","memo","raison","imperatif","confirmation","na","na1","na2","na3")
 colnames(dinscrit) <- newcol
-dinscrit[,type := ifelse (type == "Permis généraliste","generalist","specialist")]
+dinscrit[,type := ifelse(type == "Permis généraliste","generalist","specialist")]
 
 dinscrit[, `:=`(last_name = toupper(last_name), first_name = str_to_title(first_name))]
-dinscrit <- dinscrit[session == "202404",.(id,last_name,first_name,email,type,attestation)]
+dinscrit <- dinscrit[session == la_session,.(id,last_name,first_name,email,type,attestation)]
 dinscrit[,`:=`(name = paste(last_name,first_name),name_up_1 = toupper(paste(last_name,first_name)),name_up_2 = toupper(paste(first_name,last_name)),first_name_up = toupper(first_name))]
 
 diname <- dinscrit[,.(name,name_up_1,name_up_2,last_name,first_name_up)]
@@ -31,16 +33,26 @@ setorder(diname,name)
 
 ## importer les data de connexion
 
-file <- "data_stage_theo/Stage_theorique_CRBPO_Rapport_de_presence_4-04-24.csv"
-d <- read_delim(file,delim = "|",skip_empty_rows = FALSE)
-d <- as.data.frame(d)
+files <- c("Stage_theorique_CRBPO_Rapport_de_presence_4-04-24.xlsx","Stage_ theorique_CRBPO_Rapport_de_presence_4-03-24.xlsx")
 
-nb_skip <- grep("3. Activités en réunion", d[,1]) + 1
-nb_skip
-d <- read.csv(file,sep = "\t",skip = nb_skip)
-setDT(d)
-colnames(d) <- c("name_up","type_salle","nom_salle","time_in","time_out","duration","email","role")
-head(d)
+d<- NULL
+
+for(f in files) {
+
+    file <- paste0("data_stage_theo/",f)
+    cat(file,"\n")
+    df <-  read.xlsx(file,1)
+    df <- as.data.frame(df)
+
+    nb_skip <- grep("3. Activités en réunion", df[,1]) + 4
+    nb_skip
+       df <-  read.xlsx(file,1,startRow = nb_skip)
+#    df <- read.csv(file,sep = "\t",skip = nb_skip)
+    setDT(df)
+    colnames(df) <- c("name_up","type_salle","nom_salle","time_in","time_out","duration","email","role")
+
+    d <- rbind(d,df)
+}
 
 d[,`:=`(time_in = mdy_hms(time_in),time_out = mdy_hms(time_out))]
 d[,duration := as.vector(difftime(time_out, time_in,units = "hours"))]
@@ -149,16 +161,16 @@ dim(d)
 
 ###################
 
-dd <- d[,.(duration = sum(duration)),by = .(name,date)]
-
+dd <- d[,.(duration = round(sum(duration),2)),by = .(name,date)]
 
 dinscrit2 <- unique(dinscrit[,.(name,email,type,attestation)])
 dtype <- unique(dinscrit[,.(name,type)])
 dd <- merge(dd,dtype,by = "name",all.x = TRUE)
 dd[is.na(type), type := "generalist"]
 
-dd[,`:=`(conforme = !outlier_turkey(duration,k=3),median = median(duration)),by = .(date,type)]
+dd[,`:=`(conforme = !outlier_turkey(duration,k=3),median = round(median(duration),2)),by = .(date,type)]
 dd[duration > median, conforme := TRUE]
+
 dd[,conforme := ifelse(conforme == TRUE, "OUI","NON")]
 dd_dure <- dd[,.(name,date,duration)]
 dd_out <- dd[,.(name,date,conforme)]
@@ -170,10 +182,15 @@ setnames(dd_dure, colnames(dd_dure)[-1], paste(colnames(dd_dure)[-1],"durée",se
 dd_out <- dcast(dd_out,name~date,value.var="conforme",sep = "_",fill="NON")
 setnames(dd_out, colnames(dd_out)[-1], paste(colnames(dd_out)[-1],"conforme",sep="_"))
 
+v_ok <- apply(dd_out[,-1],1,function(X) ifelse(all(X=="OUI"),"OUI","NON"))
+dd_ok <- data.frame(name = dd_out[,"name"],OK = v_ok)
+setDT(dd_ok)
+
+dd_dure <- merge(dd_ok, dd_dure, by = "name")
 dd_dure <- merge(dd_dure, dd_out, by = "name")
 
 dinscrit2 <- merge(dinscrit2,dd_dure,by="name",all.y = TRUE)
 
-write.xlsx(dinscrit2,"data_stage_theo/inscription_stage_theorique.xlsx",sheetName="présence",append=TRUE)
+write.xlsx(dinscrit2,"data_stage_theo/inscription_stage_theorique.xlsx",sheetName=paste0("présence_",la_session),append=TRUE)
 
 

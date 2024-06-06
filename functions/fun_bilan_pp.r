@@ -4,11 +4,15 @@ require(xlsx)
 
 
 
-f_bilan_pp(1212,last_y = 2023) {
+f_bilan_pp(id_prog = 1212,last_y = 2023) {
+
+    id_prog = 1212;last_y = 2023
+    fname <- paste0("data/bilan_pp_",id_prog,".csv")
 
 
+    d <- fread(fname)
 
-    dd <- melt(d,id.vars = c("source","sp","annee","classe"),variable.name = "action",value.name = "nombre")
+    dd <- melt(d,id.vars = c("source","sp","annee","classe"),measure.vars = c("B","C","R"),variable.name = "action",value.name = "nombre")
     setDT(dd)
     dd[,nombre := as.numeric(gsub(" ","",nombre))]
     ## dd[annee < 2020, annee := "1978-2019"]

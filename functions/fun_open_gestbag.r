@@ -33,3 +33,10 @@ f_open_extrait_xlsx <- function(file,using_case =NULL,selected_col = c("ACTION",
 
     return(d)
 }
+
+
+
+f_clean_colnames <- function(DT)  setnames(DT,colnames(DT),iconv(tolower(gsub(" |\\.","_",colnames(DT))),from = 'UTF-8', to = 'ASCII//TRANSLIT'))
+
+
+trim <- function (x) gsub("^\\s+|\\s+$", "", x)
